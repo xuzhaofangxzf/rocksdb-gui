@@ -1,6 +1,7 @@
 use crate::state::DbState;
-use gpui::{App, AppContext, Entity, Render, SharedString, Window, div, prelude::*};
-use gpui_component::{IconName, button::Button, button::ButtonVariants, v_flex};
+use crate::ui::empty_workspace;
+use gpui_kit::{App, AppContext, Entity, Render, SharedString, Window, div, prelude::*};
+use gpui_kit::component::{IconName, button::Button, button::ButtonVariants};
 
 pub struct OpenDatabaseButton {
     db_state: Entity<DbState>,
@@ -31,10 +32,10 @@ pub fn open_database(state: Entity<DbState>, cx: &mut App) {
 }
 
 impl Render for OpenDatabaseButton {
-    fn render(&mut self, _window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut gpui_kit::Context<Self>) -> impl IntoElement {
         let state = self.db_state.clone();
         Button::new(self.id.clone())
-            .label("Open RocksDB")
+            .label("Open database")
             .icon(IconName::FolderOpen)
             .primary()
             .on_click(cx.listener(move |_this, _event, _window, cx| {
@@ -43,12 +44,20 @@ impl Render for OpenDatabaseButton {
     }
 }
 
-pub fn empty_state(button: impl IntoElement) -> impl IntoElement {
-    v_flex()
-        .size_full()
-        .items_center()
-        .justify_center()
-        .gap_3()
-        .child(div().text_lg().child("Open a local RocksDB database"))
-        .child(button)
+pub fn welcome_state(button: impl IntoElement, cx: &App) -> impl IntoElement {
+    empty_workspace(
+        "Open a RocksDB database",
+        "Choose a local database directory to browse column families, keys, and values.",
+        button,
+        cx,
+    )
+}
+
+pub fn opening_state(cx: &App) -> impl IntoElement {
+    empty_workspace(
+        "Opening database",
+        "Reading column families and preparing the first page of keys…",
+        div(),
+        cx,
+    )
 }

@@ -1,6 +1,10 @@
 use crate::state::DbState;
-use gpui::{Context, Entity, Render, SharedString, Window, div, prelude::*, svg};
-use gpui_component::{ActiveTheme, Icon, IconName, h_flex, label::Label, v_flex};
+use crate::ui::{compact_path, mono_text};
+use gpui_kit::{Context, Entity, Render, SharedString, Window, div, prelude::*, svg};
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, h_flex, label::Label, menu::{ContextMenuExt, PopupMenuItem},
+    v_flex,
+};
 
 pub struct Sidebar {
     db_state: Entity<DbState>,
@@ -20,26 +24,27 @@ impl Render for Sidebar {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let state = self.db_state.read(cx);
         let selected = state.selected_column_family().map(str::to_owned);
-        let families = state.column_families().to_vec();
         let database = state
             .path()
-            .map(|path| compact_path(&path.display().to_string(), 15))
+            .map(|path| compact_path(&path.display().to_string(), 28))
             .unwrap_or_else(|| "No database opened".to_string());
         let db_state = self.db_state.clone();
 
-        let tree_children = families.into_iter().map(|family| {
+        let tree_children = state.column_families().iter().map(|family| {
             let is_selected = selected.as_deref() == Some(family.as_str());
             let family_for_click = family.clone();
+            let family_for_export = family.clone();
             let state = db_state.clone();
+            let export_state = db_state.clone();
             div()
                 .id(SharedString::from(format!("cf-{family}")))
                 .w_full()
                 .px_2()
                 .py_1()
                 .rounded_md()
-                .when(is_selected, |this| this.bg(cx.theme().selection))
+                .when(is_selected, |this| this.bg(cx.theme().accent))
                 .when(!is_selected, |this| {
-                    this.hover(|this| this.bg(cx.theme().border))
+                    this.hover(|this| this.bg(cx.theme().accent.opacity(0.5)))
                 })
                 .child(
                     h_flex()
@@ -51,13 +56,27 @@ impl Render for Sidebar {
                                 .size_4()
                                 .text_color(cx.theme().foreground),
                         )
-                        .child(Label::new(family)),
+                        .child(Label::new(family.clone())),
                 )
                 .on_click(cx.listener(move |_this, _event, _window, cx| {
                     state.update(cx, |state, cx| {
                         state.select_column_family(family_for_click.clone(), cx)
                     });
                 }))
+                .context_menu(move |menu, _window, _cx| {
+                    if !is_selected {
+                        return menu;
+                    }
+                    menu.item({
+                        let export_state = export_state.clone();
+                        let family_for_export = family_for_export.clone();
+                        PopupMenuItem::new("Export").on_click(move |_event, _window, cx| {
+                            export_state.update(cx, |state, cx| {
+                                state.export_column_family(family_for_export.clone(), cx);
+                            });
+                        })
+                    })
+                })
         });
 
         let children = if self.expanded {
@@ -74,8 +93,6 @@ impl Render for Sidebar {
             .size_full()
             .gap_1()
             .p_2()
-            .border_r_1()
-            .border_color(cx.theme().border)
             .bg(cx.theme().sidebar)
             .child(
                 div()
@@ -84,7 +101,7 @@ impl Render for Sidebar {
                     .px_2()
                     .py_1()
                     .rounded_md()
-                    .hover(|this| this.bg(cx.theme().border))
+                    .hover(|this| this.bg(cx.theme().accent.opacity(0.5)))
                     .child(
                         h_flex()
                             .gap_1()
@@ -100,7 +117,12 @@ impl Render for Sidebar {
                                     .size_4()
                                     .text_color(cx.theme().foreground),
                             )
-                            .child(Label::new(database).text_sm()),
+                            .child(
+                                mono_text(div(), cx)
+                                    .text_sm()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(database),
+                            ),
                     )
                     .on_click(cx.listener(|this, _event, _window, cx| {
                         this.expanded = !this.expanded;
@@ -109,14 +131,4 @@ impl Render for Sidebar {
             )
             .child(children)
     }
-}
-
-fn compact_path(path: &str, max_chars: usize) -> String {
-    let chars = path.chars().collect::<Vec<_>>();
-    if chars.len() <= max_chars {
-        return path.to_string();
-    }
-
-    let visible_len = max_chars.saturating_sub(3);
-    format!("{}...", chars[..visible_len].iter().collect::<String>())
 }

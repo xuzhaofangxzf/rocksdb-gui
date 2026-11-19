@@ -1,8 +1,15 @@
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use anyhow::Result;
-use gpui::{AssetSource, SharedString};
+use gpui_kit::{AssetSource, SharedString};
 use rust_embed::RustEmbed;
+
+pub fn window_icon() -> Option<Arc<image::RgbaImage>> {
+    image::load_from_memory(include_bytes!("../assets/rocket.png"))
+        .ok()
+        .map(|image| Arc::new(image.to_rgba8()))
+}
 
 #[derive(RustEmbed)]
 #[folder = "src/asserts"]
@@ -16,7 +23,7 @@ impl AssetSource for Assets {
             return Ok(Some(file.data));
         }
 
-        gpui_component_assets::Assets.load(path)
+        gpui_kit::assets::Assets.load(path)
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
@@ -27,7 +34,7 @@ impl AssetSource for Assets {
                 file_path.starts_with(path).then(|| file_path.into())
             })
             .collect::<Vec<_>>();
-        files.extend(gpui_component_assets::Assets.list(path)?);
+        files.extend(gpui_kit::assets::Assets.list(path)?);
         Ok(files)
     }
 }

@@ -1,4 +1,5 @@
 mod key_browser;
+mod key_table;
 mod open_database;
 mod root;
 mod sidebar;
